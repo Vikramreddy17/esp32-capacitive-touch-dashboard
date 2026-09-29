@@ -10,21 +10,65 @@ A standalone ESP32 capacitive touch sensing solution paired with an integrated W
 
 ---
 
-## 📌 GitHub Repository Details
+## 🏛️ System Block Diagram
 
-### Recommended Repository Names
-- `esp32-capacitive-touch-dashboard` ⭐ *(Recommended)*
-- `esp32-copper-touch-web-panel`
-- `esp32-touch-ap-monitor`
-- `esp32-touch-sensing-dashboard`
+<div align="center">
+  <img src="assets/system_block_diagram.jpg" alt="ESP32 Capacitive Touch System Block Diagram" width="900" style="border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.4);" />
+</div>
 
-### Suggested Repository Descriptions
-- **Primary Description:**
-  > *"ESP32 standalone capacitive touch sensor with copper plate electrode, built-in Wi-Fi SoftAP, REST API, and a real-time glassmorphic dark-mode web dashboard."*
-- **Short / Bio Description:**
-  > *"Real-time ESP32 capacitive touch monitor with built-in Wi-Fi Access Point and responsive web UI."*
-- **GitHub Topics / Tags:**
-  `esp32`, `capacitive-touch`, `arduino`, `iot`, `web-dashboard`, `access-point`, `softap`, `glassmorphism`, `embedded-systems`, `copper-sensor`
+<br/>
+
+### 📋 About the System Blocks
+
+| System Block | Sub-Components | Technical Responsibility |
+| :--- | :--- | :--- |
+| **1) Hardware Block** | • ESP32 DevKit (ESP-WROOM-32)<br/>• Copper Plate Electrode<br/>• GPIO 4 (`TOUCH0`)<br/>• 5V DC Power Supply | Forms the capacitive touch transducer. The copper plate forms an electrode whose parasitic capacitance to ground changes dramatically upon human contact. |
+| **2) Processing Block** | • `touchRead(4)` Analog Sampling<br/>• 10-Sample Averaging Filter<br/>• Debounce Threshold Comparator (`< 15`)<br/>• State Machine (`NO TOUCH` $\leftrightarrow$ `TOUCHED`) | Filters high-frequency EMI and 50/60Hz mains noise. Validates that 3 consecutive cycles fall below threshold before triggering edge transitions and counting events. |
+| **3) Communication Block** | • ESP32 SoftAP Wi-Fi (`192.168.4.1`)<br/>• Port 80 WebServer<br/>• Flash Memory `PROGMEM` Storage<br/>• JSON REST API (`/status`) | Broadcasts standalone Wi-Fi SSID `ESP32-Touch` with DHCP server. Serves compressed single-page dashboard and live JSON status updates without internet access. |
+| **4) Client Block** | • Smartphone Web Browser<br/>• Laptop / Tablet Web Browser<br/>• JavaScript Polling Engine (100ms) | Renders the real-time glassmorphic UI, updates the live sensor reading, tracks event timestamps, and animates the pulsing radar glow ring. |
+
+---
+
+## 🖥️ Live Web Dashboard Visuals
+
+Whenever the ESP32 is powered and the user connects to `http://192.168.4.1`, the responsive glassmorphic dashboard displays the current sensor status in real time:
+
+### 1. Idle State — No Touch Detected
+
+<div align="center">
+  <img src="assets/dashboard_idle.jpg" alt="ESP32 Touch Dashboard - Idle State" width="850" style="border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.4);" />
+</div>
+
+<br/>
+
+#### ℹ️ About the Idle State Interface
+| Interface Element | Display Value / Status | Description |
+| :--- | :--- | :--- |
+| **Connection Badge** | `ESP32 ONLINE` (Green Dot) | Indicates healthy HTTP polling communication with the ESP32 server. |
+| **Touch Ring** | Calm Blue Border & Glow | Sensor is in resting state; no physical touch contact. |
+| **Status Heading** | `NO TOUCH` | Firmware state machine confirms capacitance is within baseline. |
+| **Live Sensor Value** | `~84.2` | High baseline capacitive reading (typical resting value: 70–95). |
+| **Stat Cards** | • **Threshold:** `15`<br/>• **Touch Events:** `0`<br/>• **Last Touch:** `Never` | Shows active threshold line, zero transition triggers, and idle history. |
+| **Device Info Bar** | `SSID: ESP32-Touch` \| `IP: 192.168.4.1` \| `GPIO: 4` | Shows active AP network settings and pin assignment. |
+
+---
+
+### 2. Active State — Copper Plate Touched
+
+<div align="center">
+  <img src="assets/dashboard_touched.jpg" alt="ESP32 Touch Dashboard - Touched State" width="850" style="border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.4);" />
+</div>
+
+<br/>
+
+#### ℹ️ About the Touched State Interface
+| Interface Element | Display Value / Status | Description |
+| :--- | :--- | :--- |
+| **Touch Ring** | Emerald Green Glow (`#4ade80`) + Radar Pulse | Dynamic keyframe animation (`touchPulse`) and scaling (`1.04x`). |
+| **Status Heading** | `TOUCH DETECTED` | Capacitive reading dropped below threshold for $\ge 3$ consecutive samples. |
+| **Live Sensor Value** | `~9.4` (Glowing Green) | Reflects the sharp drop in charge cycle count caused by human capacitance. |
+| **Touch Events Count** | Incremented (e.g. `8`) | Edge detector increments counter exactly once per physical touch transition. |
+| **Last Touch Clock** | Local Time (e.g. `10:48:32 PM`) | Captures the exact moment the transition occurred from client local clock. |
 
 ---
 
@@ -61,8 +105,8 @@ This project integrates low-level analog hardware sensing, real-time signal proc
     ```json
     {
       "touch": true,
-      "value": 11.4,
-      "events": 5,
+      "value": 9.4,
+      "events": 8,
       "threshold": 15
     }
     ```
@@ -77,11 +121,9 @@ This project integrates low-level analog hardware sensing, real-time signal proc
 
 ---
 
-## 📊 Flowcharts & System Architecture
+## 📊 Flowcharts & System Logic
 
-### 1. Complete Firmware Execution Flowchart
-The following diagram illustrates the initialization sequence, sensor sampling, debouncing state machine, and HTTP server loop running on the ESP32:
-
+### 1. Firmware Execution Flowchart
 ```mermaid
 flowchart TD
     Start([System Boot]) --> Setup[Setup: Serial 115200]
@@ -115,8 +157,6 @@ flowchart TD
 ---
 
 ### 2. Client-Server Interaction Flowchart
-The following sequence diagram illustrates how a client device connects to the ESP32 Access Point and receives live capacitive touch updates:
-
 ```mermaid
 sequenceDiagram
     autonumber
@@ -143,37 +183,6 @@ sequenceDiagram
 
 ---
 
-### 3. Frontend Web Dashboard State Flowchart
-The following diagram highlights the state logic running inside the browser's JavaScript execution engine:
-
-```mermaid
-flowchart TD
-    Init[Page Loaded] --> StartTimer["setInterval(updateSensor, 100ms)"]
-    StartTimer --> Fetch["fetch('/status', {cache: 'no-store'})"]
-    
-    Fetch --> CheckResponse{"HTTP Success?"}
-    
-    CheckResponse -- Yes --> ParseJSON[Parse JSON Data]
-    ParseJSON --> UpdateValue["Update Sensor Value Display (1 decimal)"]
-    UpdateValue --> UpdateEvents["Update Touch Events Count"]
-    
-    UpdateEvents --> CheckTouch{"data.touch == true?"}
-    CheckTouch -- Yes --> ActiveUI["Add .touched class (Green pulse glow)<br/>Set Status: TOUCH DETECTED<br/>Set Description: Copper plate touch detected"]
-    CheckTouch -- No --> IdleUI["Remove .touched class<br/>Set Status: NO TOUCH<br/>Set Description: Touch copper plate"]
-    
-    ActiveUI --> CheckNewEvent{"data.events != lastEventCount?"}
-    IdleUI --> CheckNewEvent
-    
-    CheckNewEvent -- Yes --> UpdateTimestamp["lastTouch = now.toLocaleTimeString()<br/>lastEventCount = data.events"]
-    CheckNewEvent -- No --> EndCycle[Wait for next 100ms cycle]
-    UpdateTimestamp --> EndCycle
-    
-    CheckResponse -- No / Error --> ErrorUI["Set Status: CONNECTION ERROR<br/>Remove .touched class"]
-    ErrorUI --> EndCycle
-```
-
----
-
 ## 🛠️ Hardware Setup & Pinout
 
 ### Required Components
@@ -192,14 +201,11 @@ flowchart TD
   |             GPIO 4 +-------------------------> [ Copper Plate / Foil ]
   |            (TOUCH0)|        (Jumper Wire)          (Touch Surface)
   |                    |
-  |                GND +---- (Optional: Connect to earth/shield ground if needed)
+  |                GND +---- (Optional: Earth / shield reference if needed)
   |                    |
   |                 5V +<--- Powered via USB (5V 1A adapter or PC port)
   +--------------------+
 ```
-
-> [!TIP]
-> **Ground Reference:** Capacitive touch works by measuring the capacitance shift to ground caused by human body proximity. For optimal sensitivity and consistency, ensure the ESP32 ground is connected to a clean power source (e.g. laptop USB or grounded USB adapter).
 
 ---
 
@@ -260,28 +266,6 @@ All core thresholds and network credentials can be customized at the top of [`es
    http://192.168.4.1
    ```
 3. Touch the copper plate connected to GPIO 4 and watch the dashboard react in real time!
-
----
-
-## 📡 REST API Reference
-
-### 1. Live Telemetry
-- **Endpoint:** `GET /status`
-- **Response Type:** `application/json`
-- **Example Response:**
-  ```json
-  {
-    "touch": true,
-    "value": 12.3,
-    "events": 8,
-    "threshold": 15
-  }
-  ```
-- **Fields:**
-  - `touch` *(boolean)*: `true` if active touch condition is fulfilled; `false` otherwise.
-  - `value` *(float)*: Current filtered average analog capacitance reading.
-  - `events` *(integer)*: Total count of transition touch events since boot.
-  - `threshold` *(integer)*: The active trigger threshold (`15`).
 
 ---
 
