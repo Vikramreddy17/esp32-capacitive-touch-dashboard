@@ -1,0 +1,18 @@
+# Arduino and ESP-IDF Build artifacts
+build/
+*.bin
+*.hex
+*.elf
+*.o
+*.d
+
+# OS generated files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+
+# VS Code / IDE settings
+.vscode/
+.idea/
+*.swp
+*.bak
